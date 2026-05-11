@@ -1,0 +1,109 @@
+version: "3.9"
+
+services:
+  allocare-web:
+    build:
+      context: ..
+      dockerfile: ./broker/Dockerfile
+    container_name: allocare-web
+    environment:
+      SECRET_KEY: change-this-for-production
+      DATABASE_PATH: data/allocare.db
+      RABBITMQ_EXCHANGE: allocare.events
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      RABBITMQ_QUEUE: allocare.auth.events
+      RABBITMQ_PATIENT_QUEUE: allocare.patient.admission
+      RABBITMQ_BED_QUEUE: allocare.bed.updates
+    ports:
+      - "5000:5000"
+    depends_on:
+      - rabbitmq
+    volumes:
+      - allocare-data:/app/data
+
+  allocare-audit-logger:
+    build:
+      context: ..
+      dockerfile: ./broker/Dockerfile
+    container_name: allocare-audit-logger
+    command: python subscriber/consumer.py
+    environment:
+      DATABASE_PATH: data/allocare.db
+      RABBITMQ_EXCHANGE: allocare.events
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      CONSUMER_ROLE: audit_logger
+    depends_on:
+      - rabbitmq
+    volumes:
+      - allocare-data:/app/data
+
+  allocare-alert-system:
+    build:
+      context: ..
+      dockerfile: ./broker/Dockerfile
+    container_name: allocare-alert-system
+    command: python subscriber/consumer.py
+    environment:
+      DATABASE_PATH: data/allocare.db
+      RABBITMQ_EXCHANGE: allocare.events
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      CONSUMER_ROLE: alert_system
+    depends_on:
+      - rabbitmq
+    volumes:
+      - allocare-data:/app/data
+
+  allocare-real-time-dashboard:
+    build:
+      context: ..
+      dockerfile: ./broker/Dockerfile
+    container_name: allocare-real-time-dashboard
+    command: python subscriber/consumer.py
+    environment:
+      DATABASE_PATH: data/allocare.db
+      RABBITMQ_EXCHANGE: allocare.events
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      CONSUMER_ROLE: real_time_dashboard
+    depends_on:
+      - rabbitmq
+    volumes:
+      - allocare-data:/app/data
+
+  allocare-file-monitor:
+    build:
+      context: ..
+      dockerfile: ./broker/Dockerfile
+    container_name: allocare-file-monitor
+    command: python subscriber/file_monitor.py
+    environment:
+      RABBITMQ_EXCHANGE: allocare.events
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    depends_on:
+      - rabbitmq
+    volumes:
+      - allocare-data:/app/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: allocare-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+volumes:
+  allocare-data:
